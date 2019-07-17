@@ -1,0 +1,126 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%  CODE FOR MULTI BAND SPECTRAL SUBTRACTION METHOD
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+close all;
+clear all;
+clc;
+
+% % Input Data %%%%%%%%%%
+
+ audioName = input('Introduce the audio file name (between ''): ');
+% [audioVector, samplingFreq] = wavread(audioName);
+ overlapPercentage = input('Introduce the overlap percentage: ')/100;
+% hammingSize = input('Introduce the Hamming Window Size (in seconds): ');
+% threshold = input('Introduce threshold (on dB): ');
+% noiseAverage = input('Introduce the number of noise frames considered: ');
+% beta = input('Introduce beta parameter (0 ~ 0.01): ');
+% nBands = input('Introduce the number of bands (linearly spaced): ');
+%  sound(audioVector,samplingFreq) 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Here we read in the original test speech signals.
+% audioName = 'noisecut';  %% 
+[audioVector, samplingFreq] = wavread(audioName);
+
+%%%%%%%Input parameters.
+% overlapPercentage = 50/100;
+ hammingSize = 0.02;
+noiseAverage = 10;
+beta = 0.01;
+nBands = 8;
+
+  sound(audioVector,samplingFreq);  %%Plays Original input Sound
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Generate Hamming Window for the required number of samples calculated as
+%sampling frequency * hamming size.
+hammingSize = floor(samplingFreq*hammingSize);
+hammVector = hamming(hammingSize);
+%%%%%%%%%%%%%%%%%
+
+% Segmentation of the audio signal + Hamming Window %%%%
+sizeAudio = length(audioVector);
+overlappingNumber = floor(overlapPercentage*hammingSize);
+% Calculation of number of sample vectors 
+numberOfSegments = floor((sizeAudio-hammingSize)/overlappingNumber) + 1;
+
+matrixIndex = repmat((1:hammingSize)',1,numberOfSegments);
+matrixIndex1 = repmat((0:overlappingNumber:(numberOfSegments-1)*overlappingNumber),hammingSize,1); 
+matrixIndex = matrixIndex + matrixIndex1;
+hammingMatrix = repmat(hammVector,1,numberOfSegments);
+segmMatrix = audioVector(matrixIndex).*hammingMatrix;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+figure
+plot(segmMatrix(:,100))
+
+% FFT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fftSegmMatrix = fft(segmMatrix,hammingSize);
+fftSegmMatrixPhase = angle(fftSegmMatrix);
+fftMSize = size(fftSegmMatrix);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+figure
+plot(abs(fftSegmMatrix(:,40)),'R')
+hold on
+
+% Delta Vector Calculation %%%%%%%%%%%%%%%% 
+[deltaVector] = deltaFunction(hammingSize,samplingFreq,nBands);
+% deltaVector = ones(1,fftMSize(1));
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% Weighted Spectral Average %%%%%%%%%%%%%%%%%%%%%%%%%%%
+[avgMatrixSquared] = weightedSpectralAVG(fftSegmMatrix);
+outputAvgMatrixSquared = avgMatrixSquared;
+plot(outputAvgMatrixSquared(:,40))
+grid on
+[threshold] = thresholdLevel(avgMatrixSquared)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Enhacement %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+noiseSquaredVector = avgMatrixSquared(:,1)';
+counter = 0;
+for n=2:fftMSize(2)
+    [speechFlag,snrValue,newNoiseSquaredVector] = speechDetection(avgMatrixSquared(:,n),noiseSquaredVector,threshold);
+    if speechFlag == 1
+        [alphaValue] = alphaFunction(snrValue);
+        outputAvgMatrixSquared(:,n) =  avgMatrixSquared(:,n) - 0.95.*(alphaValue.*deltaVector.*noiseSquaredVector)';
+        outputAvgMatrixSquared(:,n) = floorEnhaced(outputAvgMatrixSquared(:,n),noiseSquaredVector,beta);
+    else
+        [alphaValue] = alphaFunction(snrValue);
+        noiseSquaredVector = ((noiseAverage-1)/noiseAverage).*noiseSquaredVector + (1/noiseAverage).*newNoiseSquaredVector;
+        outputAvgMatrixSquared(:,n) =  avgMatrixSquared(:,n) - 0.95.*(alphaValue.*deltaVector.*noiseSquaredVector)';
+        outputAvgMatrixSquared(:,n) = floorEnhaced(outputAvgMatrixSquared(:,n),noiseSquaredVector,beta);
+        counter = counter + 1
+%         plot(noiseSquaredVector);
+%         hold on;
+    end
+end
+%%%
+
+
+
+% Signal Reconstrunction %
+[recoveredSpeechSignal] = overlapAddFunction(sqrt(outputAvgMatrixSquared),hammingSize,overlappingNumber,fftSegmMatrixPhase);
+% sound(recoveredSpeechSignal,samplingFreq); 
+
+ wavwrite(recoveredSpeechSignal,samplingFreq,'testMBSS.wav');
+%[recoveredSpeechSignal] = overlapAddFunction(sqrt(avgMatrixSquared),hammingSize,overlappingNumber,fftSegmMatrixPhase);
+  sound(recoveredSpeechSignal,samplingFreq)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% Smoothed Original Spectrum &  Smoothed Enhaced Spectrum %
+sizeBands = floor(sizeAudio/nBands)
+ plot(abs(fftSegmMatrix(:,floor(fftMSize(2)/2))),'-r');
+hold on;
+plot(sqrt(outputAvgMatrixSquared(:,floor(fftMSize(2)/2))));
+figure;
+spectrogram(audioVector,sizeBands,0,sizeBands,samplingFreq);
+figure;
+spectrogram(recoveredSpeechSignal,sizeBands,0,sizeBands,samplingFreq);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
