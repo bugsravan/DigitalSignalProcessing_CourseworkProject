@@ -1,0 +1,9 @@
+For PSS:
+1.	The main program is named as pss.m in PSS folder.
+2.	The functions included are weightedSpectralAVG.m, thresholdLevel.m, speechDetection.m, floorEnhaced.m, alphaFunction.m and overlapAddFunction.m
+3.	Run the program and two input parameters are asked.
+Input the corrupted speech file name with path within ëí and then enter the percentage overlap for windowing process. The results in this report are simulated by taking 50% of overlap.
+4.	The other parameters beta and threshold values are set to 0.01 and 10 respectively in the code. These can be varied as required.
+5.	 The original corrupted sound is played first and then the enhanced speech file is played.
+6. 	The output file is saved as testPSS.wav in the same folder.
+
