@@ -11,4 +11,4 @@ above mentioned methods. In order to evaluate the results we will implement the 
 results with the authors‟ results in one side, and on the other side we will implement the other technique namely 
 Power Spectral Subtraction (PSS) and compare the results with the MBSS.
 
---> To know how the algorithm performs, listen to attached audio files before and after spectral subtraction. 
+--> To find out how the algorithm performs, listen to the attached audio files before and after spectral subtraction. 
